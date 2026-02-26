@@ -20,11 +20,11 @@ agent = Agent(
 
 while True:
     env.step()      # symulacja + hold
-    # agent.step()    # logika ruchu + zdjęcie
+    agent.step()    # logika ruchu + zdjęcie
 
-    if agent.done:
-        print("🛑 Zatrzymanie programu")
-        break
+    # if agent.done:
+    #     print("🛑 Zatrzymanie programu")
+    #     break
 
 time.sleep(10)
 env.close()

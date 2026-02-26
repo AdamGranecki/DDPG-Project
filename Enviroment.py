@@ -3,6 +3,7 @@ import math
 from collections import namedtuple
 import numpy as np
 import pybullet as p
+import time
 
 class UR5Robot:
     def __init__(self, table_id, table_height):
@@ -190,7 +191,7 @@ class UR5Robot:
 class Cylinder:
     def __init__(self, cyl_pos):
         cyl_radius = 0.03
-        cyl_height = 0.1
+        cyl_height = 0.05
         cyl_mass = 0.1
         cyl_pos[2] += cyl_height/2
 
@@ -203,8 +204,87 @@ class Cylinder:
                                        baseCollisionShapeIndex=cyl_collision,
                                        baseVisualShapeIndex=cyl_visual,
                                        basePosition=cyl_pos)
+        # p.changeDynamics(cyl_id, -1, lateralFriction=0.8, rollingFriction=0.002, physicsClientId=self.env.client_id)
 
+class Conveyor:
+    def __init__(self, env, base_position=(0, -0.5, 0.55)):
+        """
+        env: instancja klasy Environment (używana do symulacji)
+        base_position: środek taśmy w świecie
+        """
+        self.env = env
+        self.base_position = base_position
 
+        self.BELT_LENGTH_M = 1.0
+        self.BELT_WIDTH_M = 0.4
+        self.BELT_HEIGHT_M = 0.05
+        self.BELT_SPEED_MPS = 0.04
+
+        self.conveyor_id = self.create_conveyor(base_position)
+        self.cylinders = []
+
+        # granica końca taśmy (dla cylindra)
+        self.belt_end_x = base_position[0] + self.BELT_LENGTH_M / 2.0 - 0.06
+
+    def create_conveyor(self, base_position):
+        """Stworzenie statycznego przenośnika (collision + visual)"""
+        half_extents = [self.BELT_LENGTH_M / 2.0, self.BELT_WIDTH_M / 2.0, self.BELT_HEIGHT_M / 2.0]
+
+        collision_shape = p.createCollisionShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents,
+            physicsClientId=self.env.client_id
+        )
+        visual_shape = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents,
+            rgbaColor=[0.1, 0.1, 0.1, 1.0],
+            physicsClientId=self.env.client_id
+        )
+
+        conveyor_id = p.createMultiBody(
+            baseMass=0,
+            baseCollisionShapeIndex=collision_shape,
+            baseVisualShapeIndex=visual_shape,
+            basePosition=base_position,
+            physicsClientId=self.env.client_id
+        )
+        p.changeDynamics(conveyor_id, -1, lateralFriction=1.2, physicsClientId=self.env.client_id)
+        return conveyor_id
+
+    def add_cylinder(self, radius=0.04, height=0.03, mass=0.35, x_offset=0.0, y_offset=0.0):
+        """Dodaj cylinder na start taśmy"""
+        collision_shape = p.createCollisionShape(
+            p.GEOM_CYLINDER, radius=radius, height=height, physicsClientId=self.env.client_id
+        )
+        visual_shape = p.createVisualShape(
+            p.GEOM_CYLINDER, radius=radius, length=height, rgbaColor=[0.85, 0.2, 0.2, 1.0],
+            physicsClientId=self.env.client_id
+        )
+
+        start_x = self.base_position[0] - self.BELT_LENGTH_M / 2.0 + 0.12 + x_offset
+        start_y = self.base_position[1] + y_offset
+        start_z = self.base_position[2] + self.BELT_HEIGHT_M / 2.0 + height / 2.0
+
+        cyl_id = p.createMultiBody(
+            baseMass=mass,
+            baseCollisionShapeIndex=collision_shape,
+            baseVisualShapeIndex=visual_shape,
+            basePosition=[start_x, start_y, start_z],
+            physicsClientId=self.env.client_id
+        )
+        p.changeDynamics(cyl_id, -1, lateralFriction=0.8, rollingFriction=0.002, physicsClientId=self.env.client_id)
+        self.cylinders.append(cyl_id)
+        return cyl_id
+
+    def step(self):
+        """Przesuń wszystkie cylindry po taśmie w każdym kroku symulacji"""
+        for cyl_id in self.cylinders:
+            pos, _ = p.getBasePositionAndOrientation(cyl_id, physicsClientId=self.env.client_id)
+            if pos[0] < self.belt_end_x:
+                p.resetBaseVelocity(cyl_id, linearVelocity=[self.BELT_SPEED_MPS, 0.0, 0.0], physicsClientId=self.env.client_id)
+            else:
+                p.resetBaseVelocity(cyl_id, linearVelocity=[0.0, 0.0, 0.0], physicsClientId=self.env.client_id)
 
 class Environment:
     def __init__(self, gui=True, hz=240):
@@ -217,9 +297,14 @@ class Environment:
         p.setGravity(0, 0, -9.81)
         p.setTimeStep(self.dt)
 
+        self.conveyor = Conveyor(self)
+        self.cyl_1 = Cylinder([-0.3, -0.5, 0.60])
+        self.conveyor.cylinders.append(self.cyl_1.cylinder)
+
+
         self._load_world()
         self._load_robot()
-        self.cyl_1 = Cylinder( [0, -0.5, 0])
+        # self.cyl_1 = Cylinder( [0, -0.5, 0])
 
     def _load_world(self):
         self.plane_id = p.loadURDF("plane.urdf")
@@ -249,10 +334,11 @@ class Environment:
     def step(self):
         self.ur5.hold_arm()
         self.ur5.hold_gripper()
+        self.conveyor.step()
 
         p.stepSimulation()
-        # if self.gui:
-        #     time.sleep(self.dt)
+        if self.gui:
+            time.sleep(self.dt)
 
     def close(self):
         p.disconnect(self.client_id)
