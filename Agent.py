@@ -1,3 +1,6 @@
+import numpy as np
+import pybullet as p
+
 class Agent:
     def __init__(self, env, target_pos, eps=0.01, control_method="end"):
         self.env = env
@@ -11,7 +14,7 @@ class Agent:
         self.control_method = control_method
 
         # 🔴 RUCH ROBOTA RAZ NA START
-        self.robot.move_arm(self.target_pos, control_method=self.control_method)
+        # self.robot.move_arm(self.target_pos, control_method=self.control_method)
 
     def step(self):
         if self.done:
