@@ -1,5 +1,6 @@
 import numpy as np
 import pybullet as p
+import time
 
 class Agent:
     def __init__(self, env, target_pos, eps=0.01, control_method="end"):
@@ -20,25 +21,31 @@ class Agent:
         if self.done:
             return
 
-        if self.control_method == "joint":
-            # sprawdzenie odległości w przestrzeni stawów
-            current_joints = np.array([p.getJointState(self.robot.robot_id, j)[0]
-                                       for j in self.robot.arm_controllable_joints])
-            dist = np.linalg.norm(current_joints - self.target_pos)
-        else:
-            # sprawdzenie odległości TCP
-            link_state = p.getLinkState(
-                self.robot.robot_id,
-                self.robot.eef_id,
-                computeForwardKinematics=True
-            )
-            tcp_pos = np.array(link_state[4])
-            dist = np.linalg.norm(tcp_pos - self.target_pos)
+        # if self.control_method == "joint":
+        #     # sprawdzenie odległości w przestrzeni stawów
+        #     current_joints = np.array([p.getJointState(self.robot.robot_id, j)[0]
+        #                                for j in self.robot.arm_controllable_joints])
+        #     dist = np.linalg.norm(current_joints - self.target_pos)
+        # else:
+
+        self.env.ur5.move_arm([-1.54, -1.54, 1.54, -1.54, -1.54, -1.54], 'joint')
+
+        # sprawdzenie odległości TCP
+        link_state = p.getLinkState(
+            self.robot.robot_id,
+            self.robot.eef_id,
+            computeForwardKinematics=True
+        )
+        tcp_pos = np.array(link_state[4])
+        dist = np.linalg.norm(tcp_pos - self.target_pos)
+
         print(tcp_pos, self.target_pos)
         if dist < self.eps:
             print("✅ Cel osiągnięty")
 
             if not self.photo_taken:
+                time.sleep(1)
+
                 rgbd = self.camera.shot_rgbd(self.robot)
                 print("📸 Zdjęcie wykonane:", rgbd.shape)
                 self.photo_taken = True
