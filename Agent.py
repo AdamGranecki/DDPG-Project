@@ -1,7 +1,7 @@
 import numpy as np
 import pybullet as p
 import time
-
+import pandas as pd
 class Agent:
     def __init__(self, env, target_pos, eps=0.01, control_method="end"):
         self.env = env
@@ -21,7 +21,7 @@ class Agent:
         if self.done:
             return
 
-        # if self.control_method == "joint":
+        # if self.control_method == "joint":g
         #     # sprawdzenie odległości w przestrzeni stawów
         #     current_joints = np.array([p.getJointState(self.robot.robot_id, j)[0]
         #                                for j in self.robot.arm_controllable_joints])
