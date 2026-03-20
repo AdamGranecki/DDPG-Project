@@ -1,7 +1,7 @@
 import numpy as np
 import pybullet as p
 import time
-import pandas as pd
+
 class Agent:
     def __init__(self, env, target_pos, eps=0.01, control_method="end"):
         self.env = env
