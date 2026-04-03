@@ -46,6 +46,7 @@ class Agent:
             if not self.photo_taken:
                 time.sleep(1)
 
+
                 rgbd = self.camera.shot_rgbd(self.robot)
                 print("📸 Zdjęcie wykonane:", rgbd.shape)
                 self.photo_taken = True
